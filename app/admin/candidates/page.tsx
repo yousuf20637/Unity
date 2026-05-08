@@ -49,6 +49,7 @@ export default function AdminCandidatesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail]         = useState<CandidateDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [deleting, setDeleting]     = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/candidates')
@@ -65,6 +66,17 @@ export default function AdminCandidatesPage() {
     if (res.ok) setDetail(await res.json());
     setDetailLoading(false);
   }, [expandedId]);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Permanently delete account for ${name || id}? This cannot be undone.`)) return;
+    setDeleting(id);
+    const res = await fetch(`/api/admin/candidates/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setCandidates(prev => prev.filter(c => c.id !== id));
+      if (expandedId === id) { setExpandedId(null); setDetail(null); }
+    }
+    setDeleting(null);
+  }
 
   const filtered = candidates.filter(c => {
     const q = search.toLowerCase();
@@ -168,11 +180,20 @@ export default function AdminCandidatesPage() {
                       </span>
                     </td>
 
-                    {/* Expand toggle */}
+                    {/* Actions */}
                     <td className="px-5 py-3.5 text-right">
-                      <span className="text-xs text-brand-600 font-medium hover:underline">
-                        {expandedId === c.id ? 'Close ▲' : 'View ▼'}
-                      </span>
+                      <div className="flex items-center justify-end gap-3">
+                        <span className="text-xs text-brand-600 font-medium hover:underline cursor-pointer">
+                          {expandedId === c.id ? 'Close ▲' : 'View ▼'}
+                        </span>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(c.id, c.fullName || c.email); }}
+                          disabled={deleting === c.id}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-40"
+                        >
+                          {deleting === c.id ? '…' : 'Delete'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
 

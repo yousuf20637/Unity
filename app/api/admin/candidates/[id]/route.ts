@@ -35,3 +35,21 @@ export async function GET(
     applications: applications ?? [],
   });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const check = await requirePermission(request, 'applications.delete');
+  if (!check.ok) return check.response;
+
+  const { id } = await params;
+  const supabase = createAdminClient();
+
+  // Delete profile and auth user
+  await supabase.from('candidate_profiles').delete().eq('user_id', id);
+  const { error } = await supabase.auth.admin.deleteUser(id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ success: true });
+}

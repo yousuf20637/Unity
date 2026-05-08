@@ -80,7 +80,6 @@ export default function ApplyForm({ jobId, jobTitle }: ApplyFormProps) {
 
   useEffect(() => {
     const savedApp = getSavedApplication(jobId);
-    setSaved(savedApp);
 
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -89,12 +88,16 @@ export default function ApplyForm({ jobId, jobTitle }: ApplyFormProps) {
         setIsSignedIn(true);
         setUserEmail(user.email ?? '');
         setUserFullName(user.user_metadata?.full_name ?? '');
+        // Only honour the localStorage entry if it belongs to this user
+        if (savedApp && savedApp.email === user.email) setSaved(savedApp);
         setProfileLoading(true);
         fetch('/api/profile')
           .then(r => r.json())
           .then((p: UserProfile) => { setProfile(p); setProfileLoading(false); })
           .catch(() => setProfileLoading(false));
       } else {
+        // Guest — localStorage entry is fine as-is
+        setSaved(savedApp);
         if (!savedApp) setShowModal(true);
       }
       setAuthLoading(false);

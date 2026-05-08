@@ -1,6 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 // Jobs are fetched client-side so search/filter works interactively
 interface Job {
@@ -39,7 +40,18 @@ export default function CareersPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem('appliedJobs');
-      if (stored) setAppliedJobs(new Set(Object.keys(JSON.parse(stored))));
+      if (!stored) return;
+      const parsed: Record<string, { email?: string }> = JSON.parse(stored);
+
+      // For signed-in users only show "Applied" badges for their own applications
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        const userEmail = data.user?.email;
+        const jobIds = userEmail
+          ? Object.entries(parsed).filter(([, v]) => v.email === userEmail).map(([k]) => k)
+          : Object.keys(parsed);
+        setAppliedJobs(new Set(jobIds));
+      });
     } catch { /* ignore */ }
   }, []);
 

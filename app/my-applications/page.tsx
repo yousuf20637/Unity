@@ -49,39 +49,44 @@ export default function MyApplicationsPage() {
   const [lookupError, setLookupError] = useState('');
 
   useEffect(() => {
-    setApps(readLocalApps());
-    setLoaded(true);
-
-    // Auto-fetch for signed-in users
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
       const email = data.user?.email;
-      if (!email) return;
-      try {
-        const res = await fetch(`/api/jobs/my-applications?email=${encodeURIComponent(email)}`);
-        const json = await res.json();
-        if (!res.ok) return;
-        const serverApps: Application[] = (json.applications ?? []).map((a: {
-          id: string; job_id: string; job_title: string; first_name: string;
-          last_name: string; email: string; status: string; created_at: string;
-        }) => ({
-          applicationId: a.id,
-          jobId:         a.job_id,
-          jobTitle:      a.job_title,
-          firstName:     a.first_name,
-          lastName:      a.last_name,
-          email:         a.email,
-          status:        a.status,
-          submittedAt:   a.created_at,
-        }));
-        setApps(prev => {
-          const merged = [...serverApps];
-          for (const local of prev) {
-            if (!merged.find(a => a.applicationId === local.applicationId)) merged.push(local);
+
+      if (email) {
+        // Signed-in: fetch from server and only merge local apps for this email
+        try {
+          const res = await fetch(`/api/jobs/my-applications?email=${encodeURIComponent(email)}`);
+          const json = await res.json();
+          if (res.ok) {
+            const serverApps: Application[] = (json.applications ?? []).map((a: {
+              id: string; job_id: string; job_title: string; first_name: string;
+              last_name: string; email: string; status: string; created_at: string;
+            }) => ({
+              applicationId: a.id,
+              jobId:         a.job_id,
+              jobTitle:      a.job_title,
+              firstName:     a.first_name,
+              lastName:      a.last_name,
+              email:         a.email,
+              status:        a.status,
+              submittedAt:   a.created_at,
+            }));
+            // Only include local apps that belong to this signed-in user
+            const localApps = readLocalApps().filter(a => a.email === email);
+            const merged = [...serverApps];
+            for (const local of localApps) {
+              if (!merged.find(a => a.applicationId === local.applicationId)) merged.push(local);
+            }
+            setApps(merged);
           }
-          return merged;
-        });
-      } catch { /* silently ignore */ }
+        } catch { /* silently ignore */ }
+      } else {
+        // Guest: show all local apps (no account to cross-check against)
+        setApps(readLocalApps());
+      }
+
+      setLoaded(true);
     });
   }, []);
 
